@@ -46,7 +46,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, toRefs } from "vue";
+import { defineComponent, ref, reactive, toRefs, onMounted } from "vue";
 import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -71,6 +71,8 @@ export default defineComponent({
     console.log("props", props);
     const addEventDialog = ref(false);
     const editEventDialog = ref(false);
+    const fullCalendar = ref(null);
+    const calendarApi = ref(null);
     const currentEvent = reactive<CurrentEvent>({
       title: "",
       desc: "",
@@ -82,6 +84,11 @@ export default defineComponent({
     const rules = {
       required: (value: string | boolean) => !!value || "Required.",
     };
+    onMounted(() => {
+      if (fullCalendar.value) {
+        calendarApi.value = fullCalendar.value.getApi();
+      }
+    })
     const calendarOptions = reactive({
       plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
       headerToolbar: {
@@ -119,9 +126,8 @@ export default defineComponent({
 
     function submitAddEvent(): void {
       addEventDialog.value = false;
-      const calendarApi = (this.$refs.fullCalendar as any).getApi();
-      calendarApi.addEvent({
-        id: (calendarApi.getEvents().length + 1).toString(),
+      calendarApi.value.addEvent({
+        id: (calendarApi.value.getEvents().length + 1).toString(),
         title: currentEvent.title,
         start: currentEvent.start,
         end: currentEvent.end,
@@ -134,8 +140,7 @@ export default defineComponent({
 
     function submitEditEvent(): void {
       editEventDialog.value = false;
-      const calendarApi = (this.$refs.fullCalendar as any).getApi();
-      const event = calendarApi.getEventById(currentEvent.id);
+      const event = calendarApi.value.getEventById(currentEvent.id);
       event.setProp("title", currentEvent.title);
       event.setExtendedProp("description", currentEvent.desc);
       event.setAllDay(currentEvent.allDay);
@@ -145,8 +150,7 @@ export default defineComponent({
     function deleteEvent(): void {
       if (!confirm("Are you sure you want to delete this event?")) return;
       editEventDialog.value = false;
-      const calendarApi = (this.$refs.fullCalendar as any).getApi();
-      calendarApi.getEventById(currentEvent.id).remove();
+      calendarApi.value.getEventById(currentEvent.id).remove();
       Object.assign(currentEvent, {
         title: "",
         desc: "",
@@ -203,6 +207,7 @@ export default defineComponent({
 
     return {
       ...toRefs({
+        fullCalendar,
         deviceName: props.deviceName,
         addEventDialog,
         editEventDialog,
