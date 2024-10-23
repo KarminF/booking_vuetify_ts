@@ -9,10 +9,16 @@
       </v-card-title>
       <v-form @submit.prevent="submitAddEvent">
         <v-text-field v-model="currentEvent.title" label="title"></v-text-field>
-        <v-textarea v-model="currentEvent.desc" label="description"></v-textarea>
+        <v-textarea
+          v-model="currentEvent.desc"
+          label="description"
+        ></v-textarea>
         <!-- <v-date-picker v-model="currentEvent.start" label="Start Date" required></v-date-picker>
         <v-date-picker v-model="currentEvent.end" label="End Date" required></v-date-picker> -->
-        <v-switch v-model="currentEvent.allDay" label="All Day Event?"></v-switch>
+        <v-switch
+          v-model="currentEvent.allDay"
+          label="All Day Event?"
+        ></v-switch>
         <v-btn class="mt-1" type="submit" block>Submit</v-btn>
         <v-btn class="mt-1" @click="addEventDialog = false" block>Cancel</v-btn>
       </v-form>
@@ -26,13 +32,21 @@
       </v-card-title>
       <v-form @submit.prevent="submitEditEvent">
         <v-text-field v-model="currentEvent.title" label="title"></v-text-field>
-        <v-textarea v-model="currentEvent.desc" label="description"></v-textarea>
+        <v-textarea
+          v-model="currentEvent.desc"
+          label="description"
+        ></v-textarea>
         <!-- <v-date-picker v-model="currentEvent.start" label="Start Date" required></v-date-picker>
         <v-date-picker v-model="currentEvent.end" label="End Date" required></v-date-picker> -->
-        <v-switch v-model="currentEvent.allDay" label="All Day Event?"></v-switch>
+        <v-switch
+          v-model="currentEvent.allDay"
+          label="All Day Event?"
+        ></v-switch>
         <v-btn class="mt-1" type="submit" block>Submit</v-btn>
         <v-btn class="mt-1" @click="deleteEvent" block>Delete</v-btn>
-        <v-btn class="mt-1" @click="editEventDialog = false" block>Cancel</v-btn>
+        <v-btn class="mt-1" @click="editEventDialog = false" block
+          >Cancel</v-btn
+        >
       </v-form>
     </v-sheet>
   </v-dialog>
@@ -51,7 +65,7 @@ import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { EventApi, EventInput } from "@fullcalendar/common";
+import { EventApi, EventInput } from "@fullcalendar/core";
 
 interface CurrentEvent extends EventInput {
   desc?: string;
@@ -71,16 +85,18 @@ export default defineComponent({
     console.log("props", props);
     const addEventDialog = ref(false);
     const editEventDialog = ref(false);
-    const fullCalendar = ref(null);
-    const calendarApi = ref(null);
+    const fullCalendar = ref<InstanceType<typeof FullCalendar> | null>(null);
+    const calendarApi = ref<ReturnType<
+      InstanceType<typeof FullCalendar>["getApi"]
+    > | null>(null);
     const currentEvent = reactive<CurrentEvent>({
       title: "",
       desc: "",
-      start: null,
-      end: null,
+      start: undefined,
+      end: undefined,
       allDay: false,
     });
-    const currentEvents = ref([]);
+    const currentEvents = ref<EventApi[]>([]);
     const rules = {
       required: (value: string | boolean) => !!value || "Required.",
     };
@@ -88,7 +104,7 @@ export default defineComponent({
       if (fullCalendar.value) {
         calendarApi.value = fullCalendar.value.getApi();
       }
-    })
+    });
     const calendarOptions = reactive({
       plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
       headerToolbar: {
@@ -126,6 +142,7 @@ export default defineComponent({
 
     function submitAddEvent(): void {
       addEventDialog.value = false;
+      if (calendarApi.value === null) return; // should not happen
       calendarApi.value.addEvent({
         id: (calendarApi.value.getEvents().length + 1).toString(),
         title: currentEvent.title,
@@ -140,22 +157,33 @@ export default defineComponent({
 
     function submitEditEvent(): void {
       editEventDialog.value = false;
-      const event = calendarApi.value.getEventById(currentEvent.id);
-      event.setProp("title", currentEvent.title);
-      event.setExtendedProp("description", currentEvent.desc);
-      event.setAllDay(currentEvent.allDay);
-      handleEventChange({ event: event });
+      if (calendarApi.value === null) return; // should not happen
+      const event = currentEvent.id ? calendarApi.value.getEventById(currentEvent.id) : null;
+      if (event) {
+        event.setProp("title", currentEvent.title);
+        event.setExtendedProp("description", currentEvent.desc);
+        event.setAllDay(currentEvent.allDay ?? false);
+        handleEventChange(event);
+      }else{
+        console.error("submitEditEvent: event not found");
+      }
     }
 
     function deleteEvent(): void {
       if (!confirm("Are you sure you want to delete this event?")) return;
       editEventDialog.value = false;
-      calendarApi.value.getEventById(currentEvent.id).remove();
+      if(calendarApi.value === null) return; // should not happen
+      const event = currentEvent.id ? calendarApi.value.getEventById(currentEvent.id) : null;
+      if (event) {
+        event.remove();
+      }else{
+        console.error("deleteEvent: event not found");
+      }
       Object.assign(currentEvent, {
         title: "",
         desc: "",
-        start: null,
-        end: null,
+        start: undefined,
+        end: undefined,
         allDay: false,
       });
     }
@@ -178,14 +206,14 @@ export default defineComponent({
       editEventDialog.value = true;
     }
 
-    function handleEventDrop(event: { event: EventApi }): void {
-      console.log("dropped:", event.event);
-      handleEventChange(event);
+    function handleEventDrop(arg: { event: EventApi }): void {
+      console.log("dropped:", arg.event);
+      handleEventChange(arg.event);
     }
 
-    function handleEventResize(event: { event: EventApi }): void {
-      console.log("resized:", event.event);
-      handleEventChange(event);
+    function handleEventResize(arg: { event: EventApi }): void {
+      console.log("resized:", arg.event);
+      handleEventChange(arg.event);
     }
 
     function handleEvents(events: EventApi[]): void {
@@ -193,20 +221,20 @@ export default defineComponent({
       console.log("handleEvents");
     }
 
-    function handleEventAdd(event: { event: EventApi }): void {
-      console.log("adding to database:", event.event);
+    function handleEventAdd(arg: { event: EventApi }): void {
+      console.log("adding to database:", arg.event);
     }
 
-    function handleEventChange(event: { event: EventApi }): void {
-      console.log("changing in database:", event.event);
+    function handleEventChange(event: EventApi): void {
+      console.log("changing in database:", event);
     }
 
-    function handleEventRemove(event: { event: EventApi }): void {
-      console.log("removing from database:", event.event);
+    function handleEventRemove(arg: { event: EventApi }): void {
+      console.log("removing from database:", arg.event);
     }
 
     return {
-      ...toRefs({
+      ...toRefs(reactive({
         fullCalendar,
         deviceName: props.deviceName,
         addEventDialog,
@@ -226,7 +254,7 @@ export default defineComponent({
         handleEventAdd,
         handleEventChange,
         handleEventRemove,
-      }),
+      })),
     };
   },
 });
